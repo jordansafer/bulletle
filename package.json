@@ -2,7 +2,8 @@
     "name": "bulletle-chess",
     "version": "1.0.0",
     "scripts": {
-        "start": "parcel index.html --open"
+        "start": "parcel index.html --open",
+        "build": "parcel build index.html"
     },
     "dependencies": {
         "react": "^18.2.0",
