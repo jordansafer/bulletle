@@ -387,6 +387,8 @@ function App() {
   const [startRow, setStartRow] = useState("");
   const [startCol, setStartCol] = useState("");
   const [piecePositions, setPiecePositions] = useState({});
+  const [timeLeft, setTimeLeft] = useState(15);
+  const [timerActive, setTimerActive] = useState(true);
 
   // Generate a new random board on mount
   useEffect(() => {
@@ -434,6 +436,31 @@ function App() {
     setBoard(newBoard);
     setTarget(validTarget);
   }, []);
+
+  useEffect(() => {
+    if (!timerActive || feedback.includes("Game Over") || feedback.includes("Correct piece")) return;
+
+    const timer = setInterval(() => {
+      setTimeLeft(prev => {
+        if (prev <= 1) {
+          // Time's up - remove a guess
+          setGuesses(prev => [...prev, { 
+            piece: '?', 
+            startRow: -1, 
+            startCol: -1,
+            row: -1, 
+            col: -1,
+            timeout: true 
+          }]);
+          setFeedback("Time's up! Lost a guess!");
+          return 15; // Changed from 30 to 15
+        }
+        return prev - 1;
+      });
+    }, 1000);
+
+    return () => clearInterval(timer);
+  }, [timerActive, feedback]);
 
   const handleGuess = () => {
     if (guesses.length >= 6) return;
@@ -513,10 +540,12 @@ function App() {
     setStartCol("");
     setInputRow("");
     setInputCol("");
+    setTimeLeft(15); // Changed from 30 to 15
   };
 
   // Update the handleGiveUp function
   const handleGiveUp = () => {
+    setTimerActive(false);
     setFeedback(
       `Game Over! The answer was: ${PIECE_SYMBOLS[target.type]} from ` +
       `${convertToChessNotation(target.startRow, target.startCol)} to ` +
@@ -604,6 +633,17 @@ function App() {
       textAlign: "center"
     }}>
       <h1 style={{ color: "#2c3e50" }}>Bulletle Chess</h1>
+      
+      <div style={{
+        fontSize: "24px",
+        fontWeight: "bold",
+        color: timeLeft <= 5 ? "#dc3545" : "#2c3e50",
+        marginBottom: "1rem",
+        transition: "color 0.3s ease"
+      }}>
+        Time to move: {Math.floor(timeLeft)}s
+      </div>
+
       <p>We scattered chess pieces randomly on an 8x8 board.</p>
       <p>
         One hidden goal: move the <strong>right piece</strong> to the <strong>right square</strong>.
@@ -777,14 +817,19 @@ function App() {
         <div style={{ marginTop: "1rem" }}>
           {guesses.map((guess, index) => (
             <div key={index} style={{ marginBottom: "5px" }}>
-              Guess {index + 1}: 
-              <span style={{
-                color: guess.piece === guess.piece.toUpperCase() ? "#000" : "#000",
-                marginRight: "4px"
-              }}>
-                {PIECE_SYMBOLS[guess.piece]}
-              </span>
-              from {convertToChessNotation(guess.startRow, guess.startCol)} to {convertToChessNotation(guess.row, guess.col)}
+              Guess {index + 1}: {guess.timeout ? (
+                <span style={{ color: "#dc3545" }}>Time's up!</span>
+              ) : (
+                <>
+                  <span style={{
+                    color: guess.piece === guess.piece.toUpperCase() ? "#000" : "#000",
+                    marginRight: "4px"
+                  }}>
+                    {PIECE_SYMBOLS[guess.piece]}
+                  </span>
+                  from {convertToChessNotation(guess.startRow, guess.startCol)} to {convertToChessNotation(guess.row, guess.col)}
+                </>
+              )}
             </div>
           ))}
         </div>
