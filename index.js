@@ -603,7 +603,7 @@ function App() {
       margin: "0 auto",
       textAlign: "center"
     }}>
-      <h1 style={{ color: "#2c3e50" }}>Bullet-Wordle Chess</h1>
+      <h1 style={{ color: "#2c3e50" }}>Bulletle Chess</h1>
       <p>We scattered chess pieces randomly on an 8x8 board.</p>
       <p>
         One hidden goal: move the <strong>right piece</strong> to the <strong>right square</strong>.

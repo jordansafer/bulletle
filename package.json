@@ -1,5 +1,5 @@
 {
-    "name": "bullet-wordle-chess",
+    "name": "bulletle-chess",
     "version": "1.0.0",
     "scripts": {
         "start": "parcel index.html --open"
