@@ -1,0 +1,15 @@
+{
+    "name": "bullet-wordle-chess",
+    "version": "1.0.0",
+    "scripts": {
+        "start": "parcel index.html --open"
+    },
+    "dependencies": {
+        "react": "^18.2.0",
+        "react-dom": "^18.2.0"
+    },
+    "devDependencies": {
+        "parcel": "^2.8.3",
+        "process": "^0.11.10"
+    }
+}
