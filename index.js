@@ -183,10 +183,35 @@ function App() {
         guess.row === target.row && 
         guess.col === target.col) {
       setFeedback("Correct piece + square! You got it!");
-    } else if (guess.piece === target.type) {
-      setFeedback("Correct piece, wrong square.");
     } else {
-      setFeedback("Wrong piece or wrong square.");
+      // Check piece differences
+      const targetIsWhite = target.type === target.type.toUpperCase();
+      const guessIsWhite = guess.piece === guess.piece.toUpperCase();
+      const targetPieceType = target.type.toUpperCase();
+      const guessPieceType = guess.piece.toUpperCase();
+      
+      const wrongPieceType = targetPieceType !== guessPieceType;
+      const wrongColor = targetIsWhite !== guessIsWhite;
+      const wrongSquare = guess.row !== target.row || guess.col !== target.col;
+
+      let feedback = [];
+      
+      // Build detailed feedback
+      if (wrongPieceType) {
+        feedback.push(`Wrong piece type - not a ${guessPieceType}`);
+      } else if (wrongColor) {
+        feedback.push(`Wrong color - try ${targetIsWhite ? 'white' : 'black'} instead`);
+      }
+      
+      if (wrongSquare) {
+        if (!wrongPieceType && !wrongColor) {
+          feedback.push("Right piece but wrong square");
+        } else {
+          feedback.push("Wrong square");
+        }
+      }
+
+      setFeedback(feedback.join(". "));
     }
     
     setGuesses(newGuesses);
@@ -194,6 +219,12 @@ function App() {
     setInputSquare("");
     setInputRow("");
     setInputCol("");
+  };
+
+  // Add this function to handle giving up
+  const handleGiveUp = () => {
+    setFeedback(`Game Over! The answer was: ${PIECE_SYMBOLS[target.type]} to ${convertToChessNotation(target.row, target.col)}`);
+    setGuesses([...guesses, { piece: target.type, row: target.row, col: target.col }]);
   };
 
   const renderSquare = (row, col) => {
@@ -325,17 +356,32 @@ function App() {
         />
         <button 
           onClick={handleGuess} 
-          disabled={guesses.length >= 6}
+          disabled={guesses.length >= 6 || feedback.includes("Game Over")}
           style={{
             padding: "8px 16px",
-            backgroundColor: guesses.length >= 6 ? "#ccc" : "#2c3e50",
+            backgroundColor: guesses.length >= 6 || feedback.includes("Game Over") ? "#ccc" : "#2c3e50",
             color: "white",
             border: "none",
             borderRadius: "4px",
-            cursor: guesses.length >= 6 ? "not-allowed" : "pointer"
+            cursor: (guesses.length >= 6 || feedback.includes("Game Over")) ? "not-allowed" : "pointer"
           }}
         >
           Guess
+        </button>
+        <button 
+          onClick={handleGiveUp}
+          disabled={feedback.includes("Game Over") || feedback.includes("Correct piece")}
+          style={{
+            padding: "8px 16px",
+            backgroundColor: "#dc3545",
+            color: "white",
+            border: "none",
+            borderRadius: "4px",
+            cursor: (feedback.includes("Game Over") || feedback.includes("Correct piece")) ? "not-allowed" : "pointer",
+            opacity: (feedback.includes("Game Over") || feedback.includes("Correct piece")) ? 0.7 : 1
+          }}
+        >
+          Give Up
         </button>
       </div>
 
