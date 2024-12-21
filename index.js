@@ -11,24 +11,136 @@ const PIECE_SYMBOLS = {
   'P': '♙', 'p': '♟'
 };
 
-// Quick helper to generate random board state
+const FILES = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h'];
+const RANKS = ['8', '7', '6', '5', '4', '3', '2', '1'];
+
+const convertToChessNotation = (row, col) => {
+  return FILES[col] + RANKS[row];
+};
+
+const convertFromChessNotation = (notation) => {
+  const file = notation[0].toLowerCase();
+  const rank = notation[1];
+  return {
+    row: RANKS.indexOf(rank),
+    col: FILES.indexOf(file)
+  };
+};
+
+// Add these helper functions after the imports
+const isValidPawnPosition = (row, type) => {
+  // Pawns can't be on the first or last rank
+  return !(row === 0 || row === 7);
+};
+
+const isPieceAttackingKing = (piece, board) => {
+  // Find kings
+  const whiteKing = board.find(p => p.type === 'K');
+  const blackKing = board.find(p => p.type === 'k');
+  const targetKing = piece.type === piece.type.toLowerCase() ? whiteKing : blackKing;
+  
+  if (!targetKing) return false;
+
+  switch (piece.type.toUpperCase()) {
+    case 'R':
+      return piece.row === targetKing.row || piece.col === targetKing.col;
+    
+    case 'B':
+      return Math.abs(piece.row - targetKing.row) === Math.abs(piece.col - targetKing.col);
+    
+    case 'Q':
+      return piece.row === targetKing.row || 
+             piece.col === targetKing.col ||
+             Math.abs(piece.row - targetKing.row) === Math.abs(piece.col - targetKing.col);
+    
+    case 'N':
+      const rowDiff = Math.abs(piece.row - targetKing.row);
+      const colDiff = Math.abs(piece.col - targetKing.col);
+      return (rowDiff === 2 && colDiff === 1) || (rowDiff === 1 && colDiff === 2);
+    
+    case 'P':
+      const direction = piece.type === 'P' ? 1 : -1;
+      return Math.abs(piece.col - targetKing.col) === 1 && 
+             (piece.row + direction === targetKing.row);
+    
+    default:
+      return false;
+  }
+};
+
+// Update the randomBoard function
 function randomBoard() {
   const pieceTypes = ["K", "Q", "R", "B", "N", "P"];
   const board = [];
   const usedPositions = new Set();
 
-  // Randomly place ~8 pieces
-  for (let i = 0; i < 8; i++) {
-    const type = pieceTypes[Math.floor(Math.random() * pieceTypes.length)];
+  // Helper to get a random valid position
+  const getRandomPosition = () => {
     let row = Math.floor(Math.random() * 8);
     let col = Math.floor(Math.random() * 8);
-    while (usedPositions.has(`${row},${col}`)) {
-      row = Math.floor(Math.random() * 8);
-      col = Math.floor(Math.random() * 8);
+    return { row, col };
+  };
+
+  // Helper to get a valid position for a piece
+  const getValidPosition = (type, isBlack) => {
+    let position;
+    let attempts = 0;
+    const maxAttempts = 100;
+
+    do {
+      position = getRandomPosition();
+      attempts++;
+
+      // Check if position is already used
+      if (usedPositions.has(`${position.row},${position.col}`)) continue;
+
+      // Check pawn position
+      if (type === 'P' && !isValidPawnPosition(position.row, type)) continue;
+
+      // Create temporary piece to check if it would cause check
+      const tempPiece = {
+        type: isBlack ? type.toLowerCase() : type,
+        row: position.row,
+        col: position.col
+      };
+
+      // Check if this piece would cause check
+      if (isPieceAttackingKing(tempPiece, board)) continue;
+
+      return position;
+
+    } while (attempts < maxAttempts);
+
+    return null; // Return null if no valid position found
+  };
+
+  // Place kings first (required pieces)
+  ['K', 'k'].forEach(kingType => {
+    const pos = getValidPosition(kingType.toUpperCase(), kingType === 'k');
+    if (pos) {
+      usedPositions.add(`${pos.row},${pos.col}`);
+      board.push({ type: kingType, row: pos.row, col: pos.col });
     }
-    usedPositions.add(`${row},${col}`);
-    board.push({ type, row, col });
+  });
+
+  // Place remaining pieces
+  for (let i = 0; i < 6; i++) {
+    const type = pieceTypes[Math.floor(Math.random() * pieceTypes.length)];
+    if (type === 'K') continue; // Skip kings as they're already placed
+
+    const isBlack = Math.random() < 0.5;
+    const pos = getValidPosition(type, isBlack);
+    
+    if (pos) {
+      usedPositions.add(`${pos.row},${pos.col}`);
+      board.push({ 
+        type: isBlack ? type.toLowerCase() : type,
+        row: pos.row,
+        col: pos.col 
+      });
+    }
   }
+
   return board;
 }
 
@@ -39,6 +151,7 @@ function App() {
   const [inputPiece, setInputPiece] = useState("");
   const [inputRow, setInputRow] = useState("");
   const [inputCol, setInputCol] = useState("");
+  const [inputSquare, setInputSquare] = useState("");
   const [feedback, setFeedback] = useState("");
 
   // Generate a new random board on mount
@@ -58,18 +171,27 @@ function App() {
 
   const handleGuess = () => {
     if (guesses.length >= 6) return;
-    const guess = { piece: inputPiece.trim().toUpperCase(), row: +inputRow, col: +inputCol };
+    
+    const guess = { 
+      piece: inputPiece.trim().toUpperCase(), 
+      row: inputRow,
+      col: inputCol
+    };
     const newGuesses = [...guesses, guess];
 
-    if (guess.piece === target.type && guess.row === target.row && guess.col === target.col) {
+    if (guess.piece === target.type && 
+        guess.row === target.row && 
+        guess.col === target.col) {
       setFeedback("Correct piece + square! You got it!");
     } else if (guess.piece === target.type) {
       setFeedback("Correct piece, wrong square.");
     } else {
       setFeedback("Wrong piece or wrong square.");
     }
+    
     setGuesses(newGuesses);
     setInputPiece("");
+    setInputSquare("");
     setInputRow("");
     setInputCol("");
   };
@@ -87,7 +209,8 @@ function App() {
       fontSize: "32px",
       color: "#2c3e50",
       cursor: "default",
-      userSelect: "none"
+      userSelect: "none",
+      position: "relative"
     };
 
     return (
@@ -115,19 +238,60 @@ function App() {
       <div style={{ 
         display: "flex",
         justifyContent: "center",
-        marginBottom: "2rem"
+        marginBottom: "2rem",
+        alignItems: "center"
       }}>
         <div style={{
-          display: "inline-block",
-          border: "2px solid #2c3e50",
-          borderRadius: "4px",
-          overflow: "hidden"
+          display: "flex",
+          flexDirection: "column",
+          marginRight: "5px"
         }}>
-          {[...Array(8)].map((_, row) => (
-            <div key={row} style={{ display: "flex" }}>
-              {[...Array(8)].map((_, col) => renderSquare(row, col))}
+          {RANKS.map(rank => (
+            <div key={rank} style={{
+              height: "50px",
+              width: "20px",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              fontSize: "14px"
+            }}>
+              {rank}
             </div>
           ))}
+        </div>
+
+        <div>
+          <div style={{
+            display: "inline-block",
+            border: "2px solid #2c3e50",
+            borderRadius: "4px",
+            overflow: "hidden"
+          }}>
+            {[...Array(8)].map((_, row) => (
+              <div key={row} style={{ display: "flex" }}>
+                {[...Array(8)].map((_, col) => renderSquare(row, col))}
+              </div>
+            ))}
+          </div>
+
+          <div style={{
+            display: "flex",
+            marginTop: "5px",
+            marginLeft: "25px"
+          }}>
+            {FILES.map(file => (
+              <div key={file} style={{
+                width: "50px",
+                height: "20px",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                fontSize: "14px"
+              }}>
+                {file.toUpperCase()}
+              </div>
+            ))}
+          </div>
         </div>
       </div>
 
@@ -145,17 +309,18 @@ function App() {
           style={inputStyle}
         />
         <input
-          type="number"
-          placeholder="Row (0-7)"
-          value={inputRow}
-          onChange={(e) => setInputRow(e.target.value)}
-          style={inputStyle}
-        />
-        <input
-          type="number"
-          placeholder="Col (0-7)"
-          value={inputCol}
-          onChange={(e) => setInputCol(e.target.value)}
+          type="text"
+          placeholder="Square (e.g. e4)"
+          value={inputSquare}
+          onChange={(e) => {
+            const value = e.target.value.toLowerCase();
+            setInputSquare(value);
+            if (value.length === 2) {
+              const { row, col } = convertFromChessNotation(value);
+              setInputRow(row);
+              setInputCol(col);
+            }
+          }}
           style={inputStyle}
         />
         <button 
@@ -184,7 +349,7 @@ function App() {
         <div style={{ marginTop: "1rem" }}>
           {guesses.map((guess, index) => (
             <div key={index} style={{ marginBottom: "5px" }}>
-              Guess {index + 1}: {PIECE_SYMBOLS[guess.piece]} to ({guess.row}, {guess.col})
+              Guess {index + 1}: {PIECE_SYMBOLS[guess.piece]} to {convertToChessNotation(guess.row, guess.col)}
             </div>
           ))}
         </div>
