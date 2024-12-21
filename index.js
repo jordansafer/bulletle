@@ -68,6 +68,164 @@ const isPieceAttackingKing = (piece, board) => {
   }
 };
 
+// Add this helper function after other helpers
+const areKingsAdjacent = (board) => {
+  const whiteKing = board.find(p => p.type === 'K');
+  const blackKing = board.find(p => p.type === 'k');
+  
+  if (!whiteKing || !blackKing) return false;
+  
+  const rowDiff = Math.abs(whiteKing.row - blackKing.row);
+  const colDiff = Math.abs(whiteKing.col - blackKing.col);
+  
+  return rowDiff <= 1 && colDiff <= 1;
+};
+
+// Add these helper functions for move validation
+const isSquareOccupied = (row, col, board) => {
+  return board.some(p => p.row === row && p.col === col);
+};
+
+const isPieceBetween = (start, end, board) => {
+  const deltaRow = Math.sign(end.row - start.row);
+  const deltaCol = Math.sign(end.col - start.col);
+  let row = start.row + deltaRow;
+  let col = start.col + deltaCol;
+
+  while (row !== end.row || col !== end.col) {
+    if (isSquareOccupied(row, col, board)) return true;
+    row += deltaRow;
+    col += deltaCol;
+  }
+  return false;
+};
+
+const getValidMoves = (piece, board) => {
+  const moves = [];
+  const isWhite = piece.type === piece.type.toUpperCase();
+  
+  // Helper to check if move would result in check
+  const wouldBeInCheck = (toRow, toCol) => {
+    // Create temporary board state
+    const tempBoard = board.filter(p => 
+      !(p.row === piece.row && p.col === piece.col)
+    ).concat([{ ...piece, row: toRow, col: toCol }]);
+    
+    // Check if any opponent piece can attack king
+    const king = tempBoard.find(p => 
+      p.type === (isWhite ? 'K' : 'k')
+    );
+    
+    return tempBoard.some(p => 
+      p.type.toUpperCase() === p.type === !isWhite && // opponent piece
+      isPieceAttackingKing(p, tempBoard)
+    );
+  };
+
+  // Helper to add move if valid
+  const addMove = (row, col) => {
+    if (row < 0 || row > 7 || col < 0 || col > 7) return false;
+    
+    const occupyingPiece = board.find(p => p.row === row && p.col === col);
+    if (occupyingPiece) {
+      const occupyingIsWhite = occupyingPiece.type === occupyingPiece.type.toUpperCase();
+      if (occupyingIsWhite === isWhite) return false; // Can't capture own piece
+    }
+    
+    if (!wouldBeInCheck(row, col)) {
+      moves.push({ row, col });
+    }
+    return !occupyingPiece; // Continue only if square is empty
+  };
+
+  switch (piece.type.toUpperCase()) {
+    case 'K':
+      for (let drow = -1; drow <= 1; drow++) {
+        for (let dcol = -1; dcol <= 1; dcol++) {
+          if (drow === 0 && dcol === 0) continue;
+          addMove(piece.row + drow, piece.col + dcol);
+        }
+      }
+      break;
+
+    case 'Q':
+      // Horizontal and vertical
+      for (let i = 0; i < 8; i++) {
+        if (i !== piece.col && !isPieceBetween(piece, {row: piece.row, col: i}, board)) {
+          addMove(piece.row, i);
+        }
+        if (i !== piece.row && !isPieceBetween(piece, {row: i, col: piece.col}, board)) {
+          addMove(i, piece.col);
+        }
+      }
+      // Diagonals
+      for (let d = -7; d <= 7; d++) {
+        if (d !== 0) {
+          if (!isPieceBetween(piece, {row: piece.row + d, col: piece.col + d}, board)) {
+            addMove(piece.row + d, piece.col + d);
+          }
+          if (!isPieceBetween(piece, {row: piece.row + d, col: piece.col - d}, board)) {
+            addMove(piece.row + d, piece.col - d);
+          }
+        }
+      }
+      break;
+
+    case 'R':
+      for (let i = 0; i < 8; i++) {
+        if (i !== piece.col && !isPieceBetween(piece, {row: piece.row, col: i}, board)) {
+          addMove(piece.row, i);
+        }
+        if (i !== piece.row && !isPieceBetween(piece, {row: i, col: piece.col}, board)) {
+          addMove(i, piece.col);
+        }
+      }
+      break;
+
+    case 'B':
+      for (let d = -7; d <= 7; d++) {
+        if (d !== 0) {
+          if (!isPieceBetween(piece, {row: piece.row + d, col: piece.col + d}, board)) {
+            addMove(piece.row + d, piece.col + d);
+          }
+          if (!isPieceBetween(piece, {row: piece.row + d, col: piece.col - d}, board)) {
+            addMove(piece.row + d, piece.col - d);
+          }
+        }
+      }
+      break;
+
+    case 'N':
+      const knightMoves = [
+        [-2, -1], [-2, 1], [-1, -2], [-1, 2],
+        [1, -2], [1, 2], [2, -1], [2, 1]
+      ];
+      knightMoves.forEach(([drow, dcol]) => {
+        addMove(piece.row + drow, piece.col + dcol);
+      });
+      break;
+
+    case 'P':
+      const direction = isWhite ? -1 : 1;
+      // Forward move
+      if (!isSquareOccupied(piece.row + direction, piece.col, board)) {
+        addMove(piece.row + direction, piece.col);
+      }
+      // Captures
+      [-1, 1].forEach(dcol => {
+        const targetRow = piece.row + direction;
+        const targetCol = piece.col + dcol;
+        const targetPiece = board.find(p => p.row === targetRow && p.col === targetCol);
+        if (targetPiece && (targetPiece.type === targetPiece.type.toUpperCase()) !== isWhite) {
+          addMove(targetRow, targetCol);
+        }
+      });
+      break;
+  }
+
+  return moves;
+};
+
 // Update the randomBoard function
 function randomBoard() {
   const pieceTypes = ["K", "Q", "R", "B", "N", "P"];
@@ -153,12 +311,18 @@ function App() {
   const [inputCol, setInputCol] = useState("");
   const [inputSquare, setInputSquare] = useState("");
   const [feedback, setFeedback] = useState("");
+  const [inputStartSquare, setInputStartSquare] = useState("");
+  const [startRow, setStartRow] = useState("");
+  const [startCol, setStartCol] = useState("");
 
   // Generate a new random board on mount
   useEffect(() => {
-    const newBoard = randomBoard();
+    let newBoard;
+    do {
+      newBoard = randomBoard();
+    } while (areKingsAdjacent(newBoard));
+    
     setBoard(newBoard);
-    // Randomly pick a piece from the board and a different target square
     const chosenIndex = Math.floor(Math.random() * newBoard.length);
     const chosenPiece = newBoard[chosenIndex];
     let newRow, newCol;
@@ -166,23 +330,51 @@ function App() {
       newRow = Math.floor(Math.random() * 8);
       newCol = Math.floor(Math.random() * 8);
     } while (newRow === chosenPiece.row && newCol === chosenPiece.col);
-    setTarget({ type: chosenPiece.type, row: newRow, col: newCol });
+    setTarget({ 
+      type: chosenPiece.type, 
+      startRow: chosenPiece.row,
+      startCol: chosenPiece.col,
+      row: newRow, 
+      col: newCol 
+    });
   }, []);
 
   const handleGuess = () => {
     if (guesses.length >= 6) return;
     
+    // Find the piece at the start square
+    const startPiece = board.find(p => p.row === startRow && p.col === startCol);
+    if (!startPiece || startPiece.type !== inputPiece) {
+      setFeedback("No matching piece at start square!");
+      return;
+    }
+
+    // Get valid moves for the selected piece
+    const validMoves = getValidMoves(startPiece, board);
+    const isValidMove = validMoves.some(move => 
+      move.row === inputRow && move.col === inputCol
+    );
+
+    if (!isValidMove) {
+      setFeedback("Invalid move for this piece!");
+      return;
+    }
+
     const guess = { 
-      piece: inputPiece.trim().toUpperCase(), 
+      piece: inputPiece,
+      startRow,
+      startCol, 
       row: inputRow,
       col: inputCol
     };
     const newGuesses = [...guesses, guess];
 
-    if (guess.piece === target.type && 
-        guess.row === target.row && 
-        guess.col === target.col) {
-      setFeedback("Correct piece + square! You got it!");
+    const correctPiece = guess.piece === target.type;
+    const correctStartSquare = guess.startRow === target.startRow && guess.startCol === target.startCol;
+    const correctEndSquare = guess.row === target.row && guess.col === target.col;
+
+    if (correctPiece && correctStartSquare && correctEndSquare) {
+      setFeedback("Correct piece + squares! You got it!");
     } else {
       // Check piece differences
       const targetIsWhite = target.type === target.type.toUpperCase();
@@ -192,7 +384,8 @@ function App() {
       
       const wrongPieceType = targetPieceType !== guessPieceType;
       const wrongColor = targetIsWhite !== guessIsWhite;
-      const wrongSquare = guess.row !== target.row || guess.col !== target.col;
+      const wrongStartSquare = !correctStartSquare;
+      const wrongEndSquare = !correctEndSquare;
 
       let feedback = [];
       
@@ -201,13 +394,15 @@ function App() {
         feedback.push(`Wrong piece type - not a ${guessPieceType}`);
       } else if (wrongColor) {
         feedback.push(`Wrong color - try ${targetIsWhite ? 'white' : 'black'} instead`);
+      } else if (wrongStartSquare) {
+        feedback.push("Right piece but wrong starting square");
       }
       
-      if (wrongSquare) {
-        if (!wrongPieceType && !wrongColor) {
-          feedback.push("Right piece but wrong square");
+      if (wrongEndSquare) {
+        if (!wrongPieceType && !wrongColor && !wrongStartSquare) {
+          feedback.push("Right piece and start but wrong target square");
         } else {
-          feedback.push("Wrong square");
+          feedback.push("Wrong target square");
         }
       }
 
@@ -216,7 +411,10 @@ function App() {
     
     setGuesses(newGuesses);
     setInputPiece("");
+    setInputStartSquare("");
     setInputSquare("");
+    setStartRow("");
+    setStartCol("");
     setInputRow("");
     setInputCol("");
   };
@@ -249,6 +447,21 @@ function App() {
         {piece && PIECE_SYMBOLS[piece.type]}
       </div>
     );
+  };
+
+  // Add this function to generate piece options from current board
+  const getPieceOptions = () => {
+    const pieces = new Set(board.map(p => p.type));
+    return Array.from(pieces).map(piece => ({
+      value: piece,
+      label: `${PIECE_SYMBOLS[piece]} ${piece === piece.toUpperCase() ? 'White' : 'Black'} ${
+        piece.toUpperCase() === 'K' ? 'King' :
+        piece.toUpperCase() === 'Q' ? 'Queen' :
+        piece.toUpperCase() === 'R' ? 'Rook' :
+        piece.toUpperCase() === 'B' ? 'Bishop' :
+        piece.toUpperCase() === 'N' ? 'Knight' : 'Pawn'
+      }`
+    })).sort((a, b) => a.label.localeCompare(b.label));
   };
 
   return (
@@ -332,16 +545,40 @@ function App() {
         gap: "10px",
         justifyContent: "center"
       }}>
-        <input
-          type="text"
-          placeholder="Piece (e.g. K, Q, R, B, N, P)"
+        <select
           value={inputPiece}
           onChange={(e) => setInputPiece(e.target.value)}
+          style={{
+            ...inputStyle,
+            fontFamily: "sans-serif",
+            fontSize: "16px"
+          }}
+        >
+          <option value="">Select a piece</option>
+          {getPieceOptions().map(option => (
+            <option key={option.value} value={option.value}>
+              {option.label}
+            </option>
+          ))}
+        </select>
+        <input
+          type="text"
+          placeholder="From square (e.g. e2)"
+          value={inputStartSquare}
+          onChange={(e) => {
+            const value = e.target.value.toLowerCase();
+            setInputStartSquare(value);
+            if (value.length === 2) {
+              const { row, col } = convertFromChessNotation(value);
+              setStartRow(row);
+              setStartCol(col);
+            }
+          }}
           style={inputStyle}
         />
         <input
           type="text"
-          placeholder="Square (e.g. e4)"
+          placeholder="To square (e.g. e4)"
           value={inputSquare}
           onChange={(e) => {
             const value = e.target.value.toLowerCase();
@@ -395,7 +632,7 @@ function App() {
         <div style={{ marginTop: "1rem" }}>
           {guesses.map((guess, index) => (
             <div key={index} style={{ marginBottom: "5px" }}>
-              Guess {index + 1}: {PIECE_SYMBOLS[guess.piece]} to {convertToChessNotation(guess.row, guess.col)}
+              Guess {index + 1}: {PIECE_SYMBOLS[guess.piece]} from {convertToChessNotation(guess.startRow, guess.startCol)} to {convertToChessNotation(guess.row, guess.col)}
             </div>
           ))}
         </div>
