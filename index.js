@@ -436,15 +436,21 @@ function App() {
       alignItems: "center",
       justifyContent: "center",
       fontSize: "32px",
-      color: "#2c3e50",
       cursor: "default",
       userSelect: "none",
       position: "relative"
     };
 
+    const pieceStyle = {
+      color: piece && piece.type === piece.type.toUpperCase() ? "#fff" : "#000",
+      textShadow: piece && piece.type === piece.type.toUpperCase() ? 
+        "-1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 1px 1px 0 #000" : 
+        "none"
+    };
+
     return (
       <div key={`${row}-${col}`} style={squareStyle}>
-        {piece && PIECE_SYMBOLS[piece.type]}
+        {piece && <span style={pieceStyle}>{PIECE_SYMBOLS[piece.type]}</span>}
       </div>
     );
   };
@@ -454,7 +460,7 @@ function App() {
     const pieces = new Set(board.map(p => p.type));
     return Array.from(pieces).map(piece => ({
       value: piece,
-      label: `${PIECE_SYMBOLS[piece]} ${piece === piece.toUpperCase() ? 'White' : 'Black'} ${
+      label: `${piece === piece.toUpperCase() ? '⚪' : '⚫'} ${PIECE_SYMBOLS[piece]} ${
         piece.toUpperCase() === 'K' ? 'King' :
         piece.toUpperCase() === 'Q' ? 'Queen' :
         piece.toUpperCase() === 'R' ? 'Rook' :
@@ -632,7 +638,14 @@ function App() {
         <div style={{ marginTop: "1rem" }}>
           {guesses.map((guess, index) => (
             <div key={index} style={{ marginBottom: "5px" }}>
-              Guess {index + 1}: {PIECE_SYMBOLS[guess.piece]} from {convertToChessNotation(guess.startRow, guess.startCol)} to {convertToChessNotation(guess.row, guess.col)}
+              Guess {index + 1}: 
+              <span style={{
+                color: guess.piece === guess.piece.toUpperCase() ? "#000" : "#000",
+                marginRight: "4px"
+              }}>
+                {PIECE_SYMBOLS[guess.piece]}
+              </span>
+              from {convertToChessNotation(guess.startRow, guess.startCol)} to {convertToChessNotation(guess.row, guess.col)}
             </div>
           ))}
         </div>
