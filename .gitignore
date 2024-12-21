@@ -1,0 +1,5 @@
+# Ignore all files in the node_modules directory, dist, .parcel-cache, and .DS_Store
+node_modules/
+dist/
+.parcel-cache/
+.DS_Store
