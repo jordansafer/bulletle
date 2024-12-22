@@ -471,7 +471,20 @@ const analyzeMoveDirection = (guess, target) => {
   return "Right direction, but move is incorrect";
 };
 
+// Add these styles to prevent text selection and touch actions
+const preventDragStyle = {
+  WebkitTouchCallout: 'none',
+  WebkitUserSelect: 'none',
+  KhtmlUserSelect: 'none',
+  MozUserSelect: 'none',
+  msUserSelect: 'none',
+  userSelect: 'none',
+  touchAction: 'none'
+};
+
+// Update containerStyle to include these properties
 const containerStyle = {
+  ...preventDragStyle,
   fontFamily: "sans-serif", 
   padding: "1rem",
   maxWidth: "800px",
@@ -834,6 +847,7 @@ function App() {
     );
     
     const squareStyle = {
+      ...preventDragStyle,
       width: "50px",
       height: "50px",
       backgroundColor: isDragOver ? 
@@ -850,6 +864,7 @@ function App() {
     };
 
     const pieceStyle = {
+      ...preventDragStyle,
       color: piece && piece.color === 'W' ? "#fff" : "#000",
       textShadow: piece && piece.color === 'W' ? 
         "-1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 1px 1px 0 #000" : 
@@ -895,6 +910,7 @@ function App() {
 
       const handleMove = (e) => {
         e.preventDefault();
+        e.stopPropagation();
         const touch = e.touches ? e.touches[0] : e;
         updateDragImage(touch);
         
@@ -960,7 +976,8 @@ function App() {
             return;
           }
 
-          e.preventDefault();
+          e.preventDefault();  // Prevent default touch behavior
+          e.stopPropagation(); // Stop event bubbling
           handleStartDrag(e.touches[0]);
         }}
         data-square={`${row},${col}`}
@@ -1018,6 +1035,21 @@ function App() {
       }
     };
   }, [dragImage]);
+
+  // Add this useEffect to handle body scrolling
+  useEffect(() => {
+    if (draggedPiece) {
+      // Prevent scrolling when dragging
+      document.body.style.overflow = 'hidden';
+      document.body.style.touchAction = 'none';
+      
+      return () => {
+        // Re-enable scrolling when drag ends
+        document.body.style.overflow = '';
+        document.body.style.touchAction = '';
+      };
+    }
+  }, [draggedPiece]);
 
   return (
     <div style={containerStyle}>
