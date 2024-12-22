@@ -29,11 +29,8 @@ const convertFromChessNotation = (notation) => {
 
 // Add these helper functions after the imports
 const isValidPawnPosition = (row, piece) => {
-  console.log("Validating pawn position:", { row, piece });
-  
   // Pawns can't be on first (row 0) or last (row 7) rank
   const isValid = row !== 0 && row !== 7;
-  console.log("Pawn position valid?", isValid);
   
   return isValid;
 };
@@ -167,6 +164,52 @@ const getValidMoves = (piece, board) => {
 
   switch (piece.type.toUpperCase()) {
     case 'K':
+      // Helper to check if a square is under attack
+      const isSquareUnderAttack = (row, col, kingColor) => {
+        return board.some(attacker => {
+          if (attacker.color === kingColor) return false; // Skip own pieces
+          
+          // Create temporary board state
+          const tempBoard = [...board];
+          
+          switch (attacker.type) {
+            case 'Q':
+              // Queen can attack like rook or bishop
+              const isDiagonal = Math.abs(row - attacker.row) === Math.abs(col - attacker.col);
+              const isOrthogonal = row === attacker.row || col === attacker.col;
+              return (isDiagonal || isOrthogonal) && !isPieceBetween({ row: attacker.row, col: attacker.col }, { row, col }, board);
+              
+            case 'R':
+              // Rook attacks on same row or column
+              return (row === attacker.row || col === attacker.col) && 
+                     !isPieceBetween({ row: attacker.row, col: attacker.col }, { row, col }, board);
+              
+            case 'B':
+              // Bishop attacks on diagonals
+              return Math.abs(row - attacker.row) === Math.abs(col - attacker.col) &&
+                     !isPieceBetween({ row: attacker.row, col: attacker.col }, { row, col }, board);
+              
+            case 'N':
+              // Knight's L-shaped attack
+              const rowDiff = Math.abs(row - attacker.row);
+              const colDiff = Math.abs(col - attacker.col);
+              return (rowDiff === 2 && colDiff === 1) || (rowDiff === 1 && colDiff === 2);
+              
+            case 'P':
+              // Pawn attacks diagonally forward
+              const pawnDir = attacker.color === 'W' ? -1 : 1;
+              return attacker.row + pawnDir === row && 
+                     Math.abs(col - attacker.col) === 1;
+              
+            case 'K':
+              // King attacks adjacent squares
+              return Math.abs(row - attacker.row) <= 1 && 
+                     Math.abs(col - attacker.col) <= 1;
+          }
+          return false;
+        });
+      };
+
       // Check each potential king move
       for (let drow = -1; drow <= 1; drow++) {
         for (let dcol = -1; dcol <= 1; dcol++) {
@@ -178,26 +221,8 @@ const getValidMoves = (piece, board) => {
           // Skip if out of bounds
           if (newRow < 0 || newRow > 7 || newCol < 0 || newCol > 7) continue;
           
-          // Create temporary board state for this move
-          const tempBoard = board.filter(p => 
-            !(p.row === piece.row && p.col === piece.col)
-          );
-          
-          // Check if any opponent piece can attack this square
-          const wouldBeAttacked = tempBoard.some(p => {
-            const isOpponent = (p.type === p.type.toUpperCase()) !== isWhite;
-            if (!isOpponent) return false;
-            
-            // Temporarily place king in new position
-            const kingMove = { ...piece, row: newRow, col: newCol };
-            tempBoard.push(kingMove);
-            
-            const isAttacking = isPieceAttackingKing(p, tempBoard);
-            tempBoard.pop(); // Remove temporary king move
-            return isAttacking;
-          });
-          
-          if (!wouldBeAttacked) {
+          // Only add move if square is not under attack
+          if (!isSquareUnderAttack(newRow, newCol, piece.color)) {
             addMove(newRow, newCol);
           }
         }
@@ -205,45 +230,27 @@ const getValidMoves = (piece, board) => {
       break;
 
     case 'Q':
-      console.log("Calculating queen moves from:", { row: piece.row, col: piece.col });
-      
       // Horizontal right
       for (let col = piece.col + 1; col < 8; col++) {
         const valid = addMove(piece.row, col);
-        console.log("Right move:", { 
-          to: convertToChessNotation(piece.row, col), 
-          valid 
-        });
         if (!valid) break;  // Stop if we hit a piece
       }
       
       // Horizontal left
       for (let col = piece.col - 1; col >= 0; col--) {
         const valid = addMove(piece.row, col);
-        console.log("Left move:", { 
-          to: convertToChessNotation(piece.row, col), 
-          valid 
-        });
         if (!valid) break;  // Stop if we hit a piece
       }
       
       // Vertical down
       for (let row = piece.row + 1; row < 8; row++) {
         const valid = addMove(row, piece.col);
-        console.log("Down move:", { 
-          to: convertToChessNotation(row, piece.col), 
-          valid 
-        });
         if (!valid) break;  // Stop if we hit a piece
       }
       
       // Vertical up
       for (let row = piece.row - 1; row >= 0; row--) {
         const valid = addMove(row, piece.col);
-        console.log("Up move:", { 
-          to: convertToChessNotation(row, piece.col), 
-          valid 
-        });
         if (!valid) break;  // Stop if we hit a piece
       }
       
@@ -251,10 +258,6 @@ const getValidMoves = (piece, board) => {
       for (let i = 1; i < 8; i++) {
         if (piece.row - i < 0 || piece.col + i >= 8) break;
         const valid = addMove(piece.row - i, piece.col + i);
-        console.log("Diagonal up-right:", {
-          to: convertToChessNotation(piece.row - i, piece.col + i),
-          valid
-        });
         if (!valid) break;  // Stop if we hit a piece
       }
       
@@ -262,10 +265,6 @@ const getValidMoves = (piece, board) => {
       for (let i = 1; i < 8; i++) {
         if (piece.row - i < 0 || piece.col - i < 0) break;
         const valid = addMove(piece.row - i, piece.col - i);
-        console.log("Diagonal up-left:", {
-          to: convertToChessNotation(piece.row - i, piece.col - i),
-          valid
-        });
         if (!valid) break;  // Stop if we hit a piece
       }
       
@@ -273,10 +272,6 @@ const getValidMoves = (piece, board) => {
       for (let i = 1; i < 8; i++) {
         if (piece.row + i >= 8 || piece.col + i >= 8) break;
         const valid = addMove(piece.row + i, piece.col + i);
-        console.log("Diagonal down-right:", {
-          to: convertToChessNotation(piece.row + i, piece.col + i),
-          valid
-        });
         if (!valid) break;  // Stop if we hit a piece
       }
       
@@ -284,56 +279,27 @@ const getValidMoves = (piece, board) => {
       for (let i = 1; i < 8; i++) {
         if (piece.row + i >= 8 || piece.col - i < 0) break;
         const valid = addMove(piece.row + i, piece.col - i);
-        console.log("Diagonal down-left:", {
-          to: convertToChessNotation(piece.row + i, piece.col - i),
-          valid
-        });
         if (!valid) break;  // Stop if we hit a piece
       }
       break;
 
     case 'R':
-      console.log("Calculating rook moves from:", convertToChessNotation(piece.row, piece.col));
-      console.log("Current board state:", board.map(p => 
-        `${p.color}${p.type} at ${convertToChessNotation(p.row, p.col)}`
-      ));
-
       // Horizontal
       for (let col = piece.col + 1; col < 8; col++) {
         const valid = addMove(piece.row, col);
-        console.log("Right move:", {
-          to: convertToChessNotation(piece.row, col),
-          valid,
-          wouldBeInCheck: wouldBeInCheck(piece.row, col)
-        });
         if (!valid) break;
       }
       for (let col = piece.col - 1; col >= 0; col--) {
         const valid = addMove(piece.row, col);
-        console.log("Left move:", {
-          to: convertToChessNotation(piece.row, col),
-          valid,
-          wouldBeInCheck: wouldBeInCheck(piece.row, col)
-        });
         if (!valid) break;
       }
       // Vertical
       for (let row = piece.row + 1; row < 8; row++) {
         const valid = addMove(row, piece.col);
-        console.log("Down move:", {
-          to: convertToChessNotation(row, piece.col),
-          valid,
-          wouldBeInCheck: wouldBeInCheck(row, piece.col)
-        });
         if (!valid) break;
       }
       for (let row = piece.row - 1; row >= 0; row--) {
         const valid = addMove(row, piece.col);
-        console.log("Up move:", {
-          to: convertToChessNotation(row, piece.col),
-          valid,
-          wouldBeInCheck: wouldBeInCheck(row, piece.col)
-        });
         if (!valid) break;
       }
       break;
@@ -366,19 +332,9 @@ const getValidMoves = (piece, board) => {
 
     case 'P':
       const direction = isWhite ? -1 : 1;
-      console.log("Calculating pawn moves:", {
-        piece: `${piece.color}${piece.type}`,
-        from: convertToChessNotation(piece.row, piece.col),
-        direction
-      });
-
       // Forward move
       if (!isSquareOccupied(piece.row + direction, piece.col, board)) {
-        const valid = addMove(piece.row + direction, piece.col);
-        console.log("Forward move:", {
-          to: convertToChessNotation(piece.row + direction, piece.col),
-          valid
-        });
+        addMove(piece.row + direction, piece.col);
       }
 
       // Diagonal captures
@@ -387,19 +343,8 @@ const getValidMoves = (piece, board) => {
         const targetCol = piece.col + dcol;
         const targetPiece = board.find(p => p.row === targetRow && p.col === targetCol);
         
-        console.log("Checking diagonal capture:", {
-          from: convertToChessNotation(piece.row, piece.col),
-          to: convertToChessNotation(targetRow, targetCol),
-          targetPiece: targetPiece ? `${targetPiece.color}${targetPiece.type}` : 'none',
-          isOpponent: targetPiece && targetPiece.color !== piece.color
-        });
-
         if (targetPiece && targetPiece.color !== piece.color) {
-          const valid = addMove(targetRow, targetCol);
-          console.log("Diagonal capture:", {
-            to: convertToChessNotation(targetRow, targetCol),
-            valid
-          });
+          addMove(targetRow, targetCol);
         }
       });
       break;
@@ -410,7 +355,6 @@ const getValidMoves = (piece, board) => {
 
 // Update the randomBoard function
 function randomBoard() {
-  const pieceTypes = ["K", "Q", "R", "B", "N", "P", "P", "P", "P"];
   const board = [];
   const usedPositions = new Set();
 
@@ -436,7 +380,6 @@ function randomBoard() {
 
       // Check pawn position - make sure to check both P and p
       if (type.charAt(1) === 'P' && !isValidPawnPosition(position.row, type)) {
-        console.log("Rejecting invalid pawn position:", position);
         continue;
       }
 
@@ -528,9 +471,6 @@ const analyzeMoveDirection = (guess, target) => {
   return "Right direction, but move is incorrect";
 };
 
-// Add these responsive style constants
-const mobileBreakpoint = '768px';
-
 const containerStyle = {
   fontFamily: "sans-serif", 
   padding: "1rem",
@@ -611,14 +551,6 @@ const buttonStyle = {
   }
 };
 
-// Update the square size to be responsive
-const squareSize = window.innerWidth <= 768 ? 40 : 50;
-
-const squareStyle = {
-  width: `${squareSize}px`,
-  height: `${squareSize}px`,
-  // ... rest of square style
-};
 
 function App() {
   const [board, setBoard] = useState([]);
@@ -636,7 +568,6 @@ function App() {
   const [timeLeft, setTimeLeft] = useState(15);
   const [timerActive, setTimerActive] = useState(true);
   const [draggedPiece, setDraggedPiece] = useState(null);
-  const [dragStartSquare, setDragStartSquare] = useState(null);
   const [dragOverSquare, setDragOverSquare] = useState(null);
   const [dragImage, setDragImage] = useState(null);
   const [validMovesForDraggedPiece, setValidMovesForDraggedPiece] = useState([]);
@@ -695,9 +626,6 @@ function App() {
     const timer = setInterval(() => {
       setTimeLeft(prev => {
         if (prev <= 1) {
-          console.log("=== TIMER TIMEOUT ===");
-          console.log("1. Current guesses count:", guesses.length);
-          
           setGuesses(prev => {
             const newGuesses = [...prev, { 
               piece: '?', 
@@ -708,10 +636,7 @@ function App() {
               timeout: true 
             }];
             
-            console.log("2. New guesses count after timeout:", newGuesses.length);
-            
             if (newGuesses.length >= 6) {
-              console.log("3. Triggering game over after timeout");
               setFeedback(`Game Over! The answer was: ${PIECE_SYMBOLS[target.color + target.type]} from ` +
                 `${convertToChessNotation(target.startRow, target.startCol)} to ` +
                 `${convertToChessNotation(target.row, target.col)}`);
@@ -733,12 +658,8 @@ function App() {
   }, [timerActive, feedback]);
 
   const handleGuess = () => {
-    console.log("=== HANDLE GUESS ===");
-    console.log("1. Current guesses count:", guesses.length);
-
     // Check for game over first
     if (guesses.length >= 6) {
-      console.log("2. Game over - max guesses reached");
       setFeedback(`Game Over! The answer was: ${PIECE_SYMBOLS[target.color + target.type]} from ` +
         `${convertToChessNotation(target.startRow, target.startCol)} to ` +
         `${convertToChessNotation(target.row, target.col)}`);
@@ -807,10 +728,8 @@ function App() {
 
     // After setting new guesses, check if this was the last move
     const newGuessCount = guesses.length + 1;
-    console.log("3. New guess count after move:", newGuessCount);
     
     if (newGuessCount >= 6 && !feedback.includes("Correct")) {
-      console.log("4. Triggering game over after final move");
       setFeedback(`Game Over! The answer was: ${PIECE_SYMBOLS[target.color + target.type]} from ` +
         `${convertToChessNotation(target.startRow, target.startCol)} to ` +
         `${convertToChessNotation(target.row, target.col)}`);
@@ -829,23 +748,8 @@ function App() {
     setGuesses([...guesses, target]);
   };
 
-  const handleDragStart = (piece, row, col) => {
-    // Create a fresh copy of the piece to avoid reference issues
-    setDraggedPiece({...piece});
-    setDragStartSquare({ row, col });
-  };
-
   const handleDrop = (toRow, toCol, piece, startSquare, validMoves) => {
-    console.log("=== HANDLE DROP ===");
-    console.log("1. Move attempt:", {
-      piece: `${piece.color}${piece.type}`,
-      from: convertToChessNotation(startSquare.row, startSquare.col),
-      to: convertToChessNotation(toRow, toCol),
-      isLastMove: guesses.length === 5
-    });
-
     if (guesses.length >= 6) {
-      console.log("2. Blocked - max guesses reached");
       setFeedback(`Game Over! The answer was: ${PIECE_SYMBOLS[target.color + target.type]} from ` +
         `${convertToChessNotation(target.startRow, target.startCol)} to ` +
         `${convertToChessNotation(target.row, target.col)}`);
@@ -853,7 +757,6 @@ function App() {
       return;
     }
 
-    // Create the guess object before using it
     const guess = {
       type: piece.type,
       color: piece.color,
@@ -865,14 +768,43 @@ function App() {
 
     setGuesses(prevGuesses => {
       const newGuesses = [...prevGuesses, guess];
-      console.log("3. Processing move:", {
-        guessCount: newGuesses.length,
-        target: `${target.color}${target.type} from ${convertToChessNotation(target.startRow, target.startCol)} to ${convertToChessNotation(target.row, target.col)}`,
-        guess: `${piece.color}${piece.type} from ${convertToChessNotation(startSquare.row, startSquare.col)} to ${convertToChessNotation(toRow, toCol)}`
-      });
+
+      // Check if guess matches target
+      if (guess.type === target.type && 
+          guess.color === target.color &&
+          guess.startRow === target.startRow && 
+          guess.startCol === target.startCol &&
+          guess.row === target.row && 
+          guess.col === target.col) {
+        setFeedback("Correct piece + squares! You got it!");
+      } else {
+        const wrongPieceType = guess.type !== target.type;
+        const wrongColor = guess.color !== target.color;
+        const wrongStartSquare = guess.startRow !== target.startRow || guess.startCol !== target.startCol;
+        const wrongEndSquare = guess.row !== target.row || guess.col !== target.col;
+
+        let feedback = [];
+        
+        if (wrongPieceType) {
+          feedback.push("Wrong piece type");
+        } else if (wrongColor) {
+          feedback.push(`Wrong color - try ${target.color === 'W' ? '⚪' : '⚫'} instead`);
+        } else if (wrongStartSquare) {
+          feedback.push("Right piece but wrong starting square");
+        }
+        
+        if (wrongEndSquare) {
+          if (!wrongPieceType && !wrongColor && !wrongStartSquare) {
+            feedback.push(analyzeMoveDirection(guess, target));
+          } else {
+            feedback.push("Wrong target square");
+          }
+        }
+
+        setFeedback(feedback.join(". "));
+      }
 
       if (newGuesses.length >= 6) {
-        console.log("4. Game over - showing solution");
         setFeedback(`Game Over! The answer was: ${PIECE_SYMBOLS[target.color + target.type]} from ` +
           `${convertToChessNotation(target.startRow, target.startCol)} to ` +
           `${convertToChessNotation(target.row, target.col)}`);
@@ -882,14 +814,12 @@ function App() {
       return newGuesses;
     });
 
-    // Reset timer
     setTimeLeft(15);
   };
 
   const renderSquare = (row, col) => {
     const isGameOver = guesses.length >= 6;
     if (isGameOver && !feedback.includes("Game Over")) {
-      console.log("Setting game over feedback in renderSquare");
       setFeedback(`Game Over! The answer was: ${PIECE_SYMBOLS[target.color + target.type]} from ` +
         `${convertToChessNotation(target.startRow, target.startCol)} to ` +
         `${convertToChessNotation(target.row, target.col)}`);
@@ -939,12 +869,6 @@ function App() {
         style={squareStyle}
         onMouseDown={(e) => {
           if (!piece || feedback.includes("Game Over") || feedback.includes("Correct piece") || guesses.length >= 6) {
-            console.log("Blocked interaction:", { 
-              reason: feedback.includes("Game Over") ? "game over" : 
-                      feedback.includes("Correct piece") ? "already solved" : 
-                      guesses.length >= 6 ? "max guesses" : "no piece",
-              guessCount: guesses.length
-            });
             return;
           }
 
@@ -954,22 +878,8 @@ function App() {
           const startSquare = { row, col };
           const validMoves = getValidMoves(draggedPiece, board);
 
-          console.log("=== DRAG START ===");
-          console.log("1. Found piece:", draggedPiece);
-          console.log("2. Calculated valid moves:", validMoves);
-          console.log("3. Creating closure values:", {
-            draggedPiece,
-            startSquare,
-            validMovesCount: validMoves.length,
-            validMovesList: validMoves,
-            currentGuessCount: guesses.length
-          });
-
-          // Set state but also keep values in closure
           setValidMovesForDraggedPiece(validMoves);
           setDraggedPiece(draggedPiece);
-          setDragStartSquare(startSquare);
-          console.log("2. Setting state with:", { draggedPiece, startSquare });
 
           // Create floating piece element
           const dragEl = document.createElement('div');
@@ -1006,65 +916,26 @@ function App() {
           };
 
           const handleMouseUp = (e) => {
-            console.log("=== DROP START ===");
-            console.log("4. Closure values available:", {
-              draggedPiece,
-              startSquare,
-              validMoves,
-              validMovesCount: validMoves.length
-            });
-
             const elements = document.elementsFromPoint(e.clientX, e.clientY);
             const square = elements.find(el => el.getAttribute('data-square'));
             
             if (square) {
               const [dropRow, dropCol] = square.getAttribute('data-square').split(',').map(Number);
-              console.log("5. Drop target:", { dropRow, dropCol });
               
               const isValidMove = validMoves.some(move => {
                 const matches = move.row === dropRow && move.col === dropCol;
-                console.log("Validating move:", {
-                  from: convertToChessNotation(startSquare.row, startSquare.col),
-                  to: convertToChessNotation(dropRow, dropCol),
-                  possibleMove: convertToChessNotation(move.row, move.col),
-                  matches,
-                  allValidMoves: validMoves.map(m => convertToChessNotation(m.row, m.col))
-                });
                 return matches;
-              });
-              console.log("6. Move validation:", {
-                isValid: isValidMove,
-                dropTarget: { dropRow, dropCol },
-                validMoves
               });
 
               if (isValidMove) {
-                console.log("7. Pre-handleDrop:", {
-                  draggedPiece,
-                  startSquare,
-                  validMoves,
-                  dropTarget: { dropRow, dropCol }
-                });
                 handleDrop(dropRow, dropCol, draggedPiece, startSquare, validMoves);
               }
             }
-
-            console.log("8. State before cleanup:", {
-              draggedPiece,
-              startSquare,
-              validMovesForDraggedPiece
-            });
-            // Move cleanup to after handleDrop
-            console.log("6. Cleaning up state:", {
-              hadDraggedPiece: !!draggedPiece,
-              hadStartSquare: !!dragStartSquare
-            });
 
             // Cleanup
             if (dragEl) dragEl.remove();
             setDragImage(null);
             setDraggedPiece(null);
-            setDragStartSquare(null);
             setDragOverSquare(null);
             setValidMovesForDraggedPiece([]);
             
@@ -1103,7 +974,6 @@ function App() {
 
   const handlePieceSelect = (e) => {
     setDraggedPiece(null);
-    setDragStartSquare(null);
     setDragOverSquare(null);
     const selectedPiece = e.target.value;
     setInputPiece(selectedPiece);
