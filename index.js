@@ -863,6 +863,86 @@ function App() {
       opacity: draggedPiece && draggedPiece === piece ? 0.3 : 1 // Make original piece semi-transparent while dragging
     };
 
+    const handleStartDrag = (event) => {
+      const draggedPiece = board.find(p => p.row === row && p.col === col);
+      const startSquare = { row, col };
+      const validMoves = getValidMoves(draggedPiece, board);
+
+      setValidMovesForDraggedPiece(validMoves);
+      setDraggedPiece(draggedPiece);
+
+      // Create floating piece element
+      const dragEl = document.createElement('div');
+      dragEl.style.position = 'fixed';
+      dragEl.style.pointerEvents = 'none';
+      dragEl.style.zIndex = 1000;
+      dragEl.style.fontSize = '64px';
+      dragEl.style.color = piece.color === 'W' ? "#fff" : "#000";
+      dragEl.style.textShadow = piece.color === 'W' ? 
+        "-1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 1px 1px 0 #000" : 
+        "none";
+      dragEl.innerHTML = PIECE_SYMBOLS[piece.color + piece.type];
+      document.body.appendChild(dragEl);
+      setDragImage(dragEl);
+
+      const updateDragImage = (e) => {
+        if (dragEl) {
+          dragEl.style.left = `${e.clientX - 32}px`;
+          dragEl.style.top = `${e.clientY - 32}px`;
+        }
+      };
+      updateDragImage(event);
+
+      const handleMove = (e) => {
+        e.preventDefault();
+        const touch = e.touches ? e.touches[0] : e;
+        updateDragImage(touch);
+        
+        const elements = document.elementsFromPoint(touch.clientX, touch.clientY);
+        const square = elements.find(el => el.getAttribute('data-square'));
+        if (square) {
+          const [row, col] = square.getAttribute('data-square').split(',').map(Number);
+          setDragOverSquare({ row, col });
+        }
+      };
+
+      const handleEnd = (e) => {
+        const touch = e.changedTouches ? e.changedTouches[0] : e;
+        const elements = document.elementsFromPoint(touch.clientX, touch.clientY);
+        const square = elements.find(el => el.getAttribute('data-square'));
+        
+        if (square) {
+          const [dropRow, dropCol] = square.getAttribute('data-square').split(',').map(Number);
+          
+          const isValidMove = validMoves.some(move => {
+            const matches = move.row === dropRow && move.col === dropCol;
+            return matches;
+          });
+
+          if (isValidMove) {
+            handleDrop(dropRow, dropCol, draggedPiece, startSquare, validMoves);
+          }
+        }
+
+        // Cleanup
+        if (dragEl) dragEl.remove();
+        setDragImage(null);
+        setDraggedPiece(null);
+        setDragOverSquare(null);
+        setValidMovesForDraggedPiece([]);
+        
+        document.removeEventListener('mousemove', handleMove);
+        document.removeEventListener('mouseup', handleEnd);
+        document.removeEventListener('touchmove', handleMove);
+        document.removeEventListener('touchend', handleEnd);
+      };
+
+      document.addEventListener('mousemove', handleMove);
+      document.addEventListener('mouseup', handleEnd);
+      document.addEventListener('touchmove', handleMove);
+      document.addEventListener('touchend', handleEnd);
+    };
+
     return (
       <div 
         key={`${row}-${col}`} 
@@ -873,78 +953,15 @@ function App() {
           }
 
           e.preventDefault();
-          
-          const draggedPiece = board.find(p => p.row === row && p.col === col);
-          const startSquare = { row, col };
-          const validMoves = getValidMoves(draggedPiece, board);
+          handleStartDrag(e);
+        }}
+        onTouchStart={(e) => {
+          if (!piece || feedback.includes("Game Over") || feedback.includes("Correct piece") || guesses.length >= 6) {
+            return;
+          }
 
-          setValidMovesForDraggedPiece(validMoves);
-          setDraggedPiece(draggedPiece);
-
-          // Create floating piece element
-          const dragEl = document.createElement('div');
-          dragEl.style.position = 'fixed';
-          dragEl.style.pointerEvents = 'none';
-          dragEl.style.zIndex = 1000;
-          dragEl.style.fontSize = '64px';
-          dragEl.style.color = piece.color === 'W' ? "#fff" : "#000";
-          dragEl.style.textShadow = piece.color === 'W' ? 
-            "-1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 1px 1px 0 #000" : 
-            "none";
-          dragEl.innerHTML = PIECE_SYMBOLS[piece.color + piece.type];
-          document.body.appendChild(dragEl);
-          setDragImage(dragEl);
-
-          const updateDragImage = (e) => {
-            if (dragEl) {
-              dragEl.style.left = `${e.clientX - 32}px`;
-              dragEl.style.top = `${e.clientY - 32}px`;
-            }
-          };
-          updateDragImage(e);
-
-          const handleMouseMove = (e) => {
-            e.preventDefault();
-            updateDragImage(e);
-            
-            const elements = document.elementsFromPoint(e.clientX, e.clientY);
-            const square = elements.find(el => el.getAttribute('data-square'));
-            if (square) {
-              const [row, col] = square.getAttribute('data-square').split(',').map(Number);
-              setDragOverSquare({ row, col });
-            }
-          };
-
-          const handleMouseUp = (e) => {
-            const elements = document.elementsFromPoint(e.clientX, e.clientY);
-            const square = elements.find(el => el.getAttribute('data-square'));
-            
-            if (square) {
-              const [dropRow, dropCol] = square.getAttribute('data-square').split(',').map(Number);
-              
-              const isValidMove = validMoves.some(move => {
-                const matches = move.row === dropRow && move.col === dropCol;
-                return matches;
-              });
-
-              if (isValidMove) {
-                handleDrop(dropRow, dropCol, draggedPiece, startSquare, validMoves);
-              }
-            }
-
-            // Cleanup
-            if (dragEl) dragEl.remove();
-            setDragImage(null);
-            setDraggedPiece(null);
-            setDragOverSquare(null);
-            setValidMovesForDraggedPiece([]);
-            
-            document.removeEventListener('mousemove', handleMouseMove);
-            document.removeEventListener('mouseup', handleMouseUp);
-          };
-
-          document.addEventListener('mousemove', handleMouseMove);
-          document.addEventListener('mouseup', handleMouseUp);
+          e.preventDefault();
+          handleStartDrag(e.touches[0]);
         }}
         data-square={`${row},${col}`}
       >
