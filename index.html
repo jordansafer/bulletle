@@ -2,6 +2,7 @@
 <html>
   <head>
     <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
     <title>Bulletle Chess</title>
     <style>
       body {
@@ -16,6 +17,11 @@
       }
       input[type=number] {
         -moz-appearance: textfield;
+      }
+      @media (max-width: 768px) {
+        body {
+          font-size: 14px;
+        }
       }
     </style>
   </head>
